@@ -7,6 +7,13 @@ import io
 from gtts import gTTS
 from datetime import datetime
 import base64
+from PIL import Image
+import io
+
+app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'your-secret-key')
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 class LocationImageAnalyzer:
     def __init__(self, openai_api_key):
@@ -149,7 +156,7 @@ class LocationImageAnalyzer:
 
 
 # OpenAI APIキーを設定
-openai_api_key = os.getenv("OpenAI_API_key")
+openai_api_key = os.getenv("OPENAI_API_KEY")
 model = "gpt-4o-mini"
 # model = "gpt-4o-audio-preview"
 # voice = "alloy"

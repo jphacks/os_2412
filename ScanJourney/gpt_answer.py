@@ -131,7 +131,7 @@ class ChatGPTAssistant:
 
 
 # OpenAI APIキーを設定
-openai_api_key = os.getenv("OpenAI_API_key")
+openai_api_key = os.getenv("OPENAI_API_KEY")
 model = "gpt-4o-mini"
 # model = "gpt-4o-audio-preview"
 # voice = "alloy"

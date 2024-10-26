@@ -1,0 +1,194 @@
+<!-- templates/camera.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カメラ</title>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #camera {
+            width: 100%;
+            max-width: 640px;
+            margin-bottom: 20px;
+        }
+        #preview {
+            max-width: 640px;
+            margin: 20px 0;
+            display: none;
+        }
+        .button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .location-info {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        #result {
+            margin-top: 20px;
+            display: none;
+        }
+        .error {
+            color: red;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>カメラ機能</h1>
+        <div class="location-info">
+            <p>位置情報: <span id="location-status">取得中...</span></p>
+            <p>緯度: <span id="latitude">-</span></p>
+            <p>経度: <span id="longitude">-</span></p>
+        </div>
+        
+        <video id="camera" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <img id="preview" alt="プレビュー">
+        
+        <div>
+            <button id="take-photo" class="button">写真を撮る</button>
+            <button id="retake" class="button" style="display:none;">撮り直す</button>
+            <button id="analyze" class="button" style="display:none;">分析する</button>
+            <a href="/" class="button">戻る</a>
+        </div>
+
+        <div id="error" class="error"></div>
+
+        <div id="result">
+            <h2>分析結果</h2>
+            <div id="description"></div>
+            <audio id="audio" controls style="margin-top: 20px;"></audio>
+        </div>
+    </div>
+
+    <script>
+        let currentLatitude = null;
+        let currentLongitude = null;
+
+        // 位置情報の取得
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        currentLatitude = position.coords.latitude;
+                        currentLongitude = position.coords.longitude;
+                        document.getElementById('location-status').textContent = '取得成功';
+                        document.getElementById('latitude').textContent = currentLatitude;
+                        document.getElementById('longitude').textContent = currentLongitude;
+                    },
+                    function(error) {
+                        document.getElementById('location-status').textContent = '取得失敗';
+                        document.getElementById('error').textContent = '位置情報の取得に失敗しました: ' + error.message;
+                    }
+                );
+            } else {
+                document.getElementById('location-status').textContent = '非対応';
+                document.getElementById('error').textContent = 'お使いのブラウザは位置情報に対応していません。';
+            }
+        }
+
+        // カメラの初期化
+        const video = document.getElementById('camera');
+        const canvas = document.getElementById('canvas');
+        const preview = document.getElementById('preview');
+        const takePhotoBtn = document.getElementById('take-photo');
+        const retakeBtn = document.getElementById('retake');
+        const analyzeBtn = document.getElementById('analyze');
+
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                document.getElementById('error').textContent = 'カメラの起動に失敗しました: ' + err.message;
+            }
+        }
+
+        // 写真撮影
+        takePhotoBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            preview.src = canvas.toDataURL('image/jpeg');
+            
+            video.style.display = 'none';
+            preview.style.display = 'block';
+            takePhotoBtn.style.display = 'none';
+            retakeBtn.style.display = 'inline-block';
+            analyzeBtn.style.display = 'inline-block';
+        });
+
+        // 撮り直し
+        retakeBtn.addEventListener('click', () => {
+            video.style.display = 'block';
+            preview.style.display = 'none';
+            takePhotoBtn.style.display = 'inline-block';
+            retakeBtn.style.display = 'none';
+            analyzeBtn.style.display = 'none';
+            document.getElementById('result').style.display = 'none';
+        });
+
+        // 分析実行
+        analyzeBtn.addEventListener('click', async () => {
+            if (!currentLatitude || !currentLongitude) {
+                document.getElementById('error').textContent = '位置情報を取得してから分析してください。';
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image: preview.src,
+                        latitude: currentLatitude,
+                        longitude: currentLongitude
+                    })
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+
+                document.getElementById('description').textContent = result.description;
+                document.getElementById('audio').src = result.audio_file;
+                document.getElementById('result').style.display = 'block';
+            } catch (err) {
+                document.getElementById('error').textContent = '分析中にエラーが発生しました: ' + err.message;
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        // 初期化
+        initCamera();
+        getLocation();
+    </script>
+</body>
+</html>

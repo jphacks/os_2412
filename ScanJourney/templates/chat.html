@@ -1,0 +1,171 @@
+<!-- templates/chat.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ image_data.place_name }} - 観光ガイド</title>
+    <style>
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 0;
+        }
+        .location-title {
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px;
+            margin: 0;
+            text-align: center;
+            border-radius: 0 0 8px 8px;
+        }
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            background-color: #fff;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            max-width: 80%;
+            position: relative;
+        }
+        .message.assistant {
+            background-color: #f5f5f5;
+            margin-right: auto;
+        }
+        .message.user {
+            background-color: #e3f2fd;
+            margin-left: auto;
+            text-align: right;
+        }
+        .timestamp {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+            padding: 20px 0;
+            position: relative;
+        }
+        .input-field {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #45a049;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .audio-controls {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .audio-controls audio {
+            width: 100%;
+            max-width: 500px;
+            margin-top: 10px;
+        }
+        .audio-toggle {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .loading {
+            text-align: center;
+            padding: 10px;
+            color: #666;
+            display: none;
+        }
+        .back-button {
+            margin-bottom: 20px;
+            display: inline-block;
+        }
+        .error-message {
+            color: #ff0000;
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('album') }}" class="button back-button">アルバムに戻る</a>
+        
+        <!-- ヘッダー画像とタイトル -->
+        <img src="{{ image_data.image_path }}" alt="{{ image_data.place_name }}" class="header-image">
+        <h1 class="location-title">{{ image_data.place_name }}</h1>
+
+        <!-- 音声コントロール -->
+        <div class="audio-controls">
+            <p>場所の説明を聞く：</p>
+            <audio controls>
+                <source src="{{ image_data.audio_path }}" type="audio/wav">
+                お使いのブラウザは音声再生に対応していません。
+            </audio>
+        </div>
+
+        <!-- チャットエリア -->
+        <div class="chat-container" id="chat-messages">
+            {% for message in chat_history %}
+            <div class="message {{ message.type }}">
+                {{ message.content }}
+                <div class="timestamp">{{ message.timestamp }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div id="error-message" class="error-message"></div>
+        <div id="loading" class="loading">回答を生成中...</div>
+
+        <div class="audio-toggle">
+            <input type="checkbox" id="audio-enabled">
+            <label for="audio-enabled">チャットの音声を有効にする</label>
+        </div>
+
+        <div class="input-container">
+            <input type="text" id="message-input" class="input-field" placeholder="質問を入力してください...">
+            <button id="send-button" class="button">送信</button>
+        </div>
+    </div>
+
+    <!-- JavaScriptファイルの読み込み -->
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>
