@@ -4,8 +4,11 @@ from datetime import datetime
 import json
 from utils.image_analyzer import ImageAnalyzer
 from utils.metadata_manager import MetadataManager
+from utils.gui_chat_manager import launch_gui_chat
 from openai import OpenAI
 from dotenv import load_dotenv
+
+os.environ["PYTHONIOENCODING"] = "utf-8"
 
 # .env ファイルの読み込み
 load_dotenv()
@@ -30,7 +33,23 @@ def camera():
 
 @app.route('/album')
 def album():
-    images = metadata_manager.get_all_images()
+    # 画像ファイルとそれに対応するメタデータを取得
+    images = []
+    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+        if filename.startswith('image') and filename.endswith(('png', 'jpg', 'jpeg')):
+            # メタデータを取得
+            image_metadata = metadata_manager.get_image_data_by_filename(filename)
+            
+            # もしメタデータが存在すれば、画像データと一緒にリストに追加
+            if image_metadata:
+                # 画像のタイムスタンプを整形
+                timestamp = datetime.fromisoformat(image_metadata['timestamp']).strftime('%Y年%m月%d日 %H時%M分')
+                images.append({
+                    'filename': filename,
+                    'place_name': image_metadata['place_name'],
+                    'timestamp': timestamp
+                })
+
     return render_template('album.html', images=images)
 
 @app.route('/analyze', methods=['POST'])
@@ -41,6 +60,10 @@ def analyze():
         latitude = data['latitude']
         longitude = data['longitude']
 
+        # Base64データの処理
+        if ',' in image_data:
+            image_data = image_data.split(',')[1]
+
         # 画像分析の実行
         result = image_analyzer.analyze_image(image_data, latitude, longitude)
 
@@ -49,10 +72,8 @@ def analyze():
         image_filename = f"image_{timestamp}.jpg"
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
         
-        # Base64データをデコードして画像を保存
+        # Base64データを画像として保存
         import base64
-        if ',' in image_data:
-            image_data = image_data.split(',')[1]
         image_binary = base64.b64decode(image_data)
         with open(image_path, 'wb') as f:
             f.write(image_binary)
@@ -60,7 +81,8 @@ def analyze():
         # 音声ファイルの保存
         audio_filename = f"audio_{timestamp}.wav"
         audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
-        result['audio_response'].stream_to_file(audio_path)
+        with open(audio_path, 'wb') as audio_file:
+            audio_file.write(result['audio_response'].content)
 
         # メタデータの保存
         image_id = metadata_manager.save_image_data({
@@ -73,21 +95,6 @@ def analyze():
             'longitude': longitude
         })
 
-        # チャットの初期化
-        session['chat_context'] = {
-            'image_id': image_id,
-            'place_name': result['place'],
-            'description': result['description'],
-            'latitude': latitude,
-            'longitude': longitude
-        }
-        
-        session['chat_history'] = [{
-            "type": "assistant",
-            "content": result['description'],
-            "timestamp": datetime.now().isoformat()
-        }]
-
         return jsonify({
             'success': True,
             'image_id': image_id,
@@ -98,9 +105,12 @@ def analyze():
         })
 
     except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        app.logger.error(f"Analysis error: {error_detail}")
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': f"分析中にエラーが発生しました: {str(e)}"
         }), 500
 
 @app.route('/chat/<image_id>')
@@ -120,12 +130,11 @@ def chat(image_id):
     }
     
     # チャット履歴の初期化（初回説明を含める）
-    if 'chat_history' not in session:
-        session['chat_history'] = [{
-            "type": "assistant",
-            "content": image_data['description'],
-            "timestamp": datetime.now().isoformat()
-        }]
+    session['chat_history'] = [{
+        "type": "assistant",
+        "content": image_data['description'],
+        "timestamp": datetime.now().isoformat()
+    }]
     
     return render_template('chat.html', 
                          image_data=image_data,
@@ -171,7 +180,7 @@ def chat_message():
 
         # レスポンス生成
         response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4-turbo-preview",
             messages=messages,
             max_tokens=500
         )
@@ -215,6 +224,21 @@ def chat_message():
             'success': False,
             'error': str(e)
         }), 500
+
+@app.route('/launch_gui_chat/<image_id>')
+def launch_gui_chat_route(image_id):
+    image_data = metadata_manager.get_image_data(image_id)
+    if not image_data:
+        return jsonify({'success': False, 'error': '画像が見つかりません'})
+
+    # GUIチャットの起動
+    launch_gui_chat(
+        openai_client,
+        image_data['place_name'],
+        image_data['description']
+    )
+
+    return jsonify({'success': True, 'message': 'GUIチャットを起動しました'})
 
 if __name__ == '__main__':
     app.run(debug=True)

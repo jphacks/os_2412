@@ -1,4 +1,3 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,30 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カメラ・アルバム選択</title>
     <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            background-color: #d7385e;
+            color: white;
+            text-align: center;
+            padding: 40px 0; /* ヘッダー内の間隔を広げる */
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 1000; /* ヘッダーを最前面に表示 */
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            color: white; /* 文字の色が背景と同じになっている可能性があるので、明確に白に指定 */
+            margin: 0;
+        }
+
         .container {
             max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 180px auto 0; /* ヘッダーとさらに間隔をあける */
+            padding: 40px;
             text-align: center;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
         }
+
+        h1 {
+            font-size: 2rem;
+            color: #d7385e; /* ポケモン図鑑風の赤 */
+            margin-bottom: 30px;
+        }
+
         .button {
             display: inline-block;
             padding: 15px 30px;
             margin: 10px;
             font-size: 18px;
-            background-color: #4CAF50;
+            font-weight: bold;
+            background-color: #ffcc01; /* ポケモン進化ボタンのような黄色 */
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 25px;
             cursor: pointer;
-            text-decoration: none;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
         }
+
         .button:hover {
-            background-color: #45a049;
+            background-color: #e5b600;
+        }
+
+        .button:active {
+            background-color: #cc9900;
         }
     </style>
 </head>
 <body>
+    <header class="header">
+        <h1>ScanJourney</h1>
+    </header>
+
     <div class="container">
         <h1>カメラ・アルバム選択</h1>
         <a href="/camera" class="button">カメラ</a>

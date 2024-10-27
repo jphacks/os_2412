@@ -1,4 +1,3 @@
-<!-- templates/camera.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,60 +5,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>カメラ</title>
     <style>
+        /* ポケモン風の全体的な色設定 */
+        body {
+            background-color: #f8d5a3; /* ポケモンの明るい背景色風 */
+            color: #333;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        /* ヘッダー部分 */
+        h1 {
+            color: #d7385e; /* ポケモン図鑑風の赤 */
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        /* コンテナのスタイル */
         .container {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             text-align: center;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
+
+        /* カメラとプレビューのスタイル */
         #camera {
             width: 100%;
             max-width: 640px;
             margin-bottom: 20px;
+            border: 3px solid #d7385e; /* 赤い枠でカメラを強調 */
+            border-radius: 10px;
         }
+
         #preview {
             max-width: 640px;
             margin: 20px 0;
             display: none;
+            border: 3px solid #ffcc01; /* 黄色い枠でプレビューを強調 */
+            border-radius: 10px;
         }
+
+        /* ボタンのスタイル */
         .button {
-            padding: 10px 20px;
+            padding: 12px 25px;
             margin: 10px;
-            font-size: 16px;
-            background-color: #4CAF50;
+            font-size: 18px;
+            background-color: #ffcc01; /* ポケモンの進化ボタン風の黄色 */
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 5px;
             cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
         }
+
+        .button:hover {
+            background-color: #e5b600;
+        }
+
         .button:disabled {
             background-color: #cccccc;
             cursor: not-allowed;
         }
-        .location-info {
-            margin: 20px 0;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-        }
-        #result {
-            margin-top: 20px;
+
+        /* 分析中のステータス表示 */
+        #analyzing-status {
+            margin: 10px 0;
+            font-weight: bold;
             display: none;
+            padding: 10px 20px;
+            background-color: #ffeb99; /* 分析中の表示を黄色で */
+            border-radius: 4px;
+            color: #666;
         }
+
+        /* エラーメッセージ */
         .error {
             color: red;
             margin: 10px 0;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>カメラ機能</h1>
-        <div class="location-info">
-            <p>位置情報: <span id="location-status">取得中...</span></p>
-            <p>緯度: <span id="latitude">-</span></p>
-            <p>経度: <span id="longitude">-</span></p>
-        </div>
         
         <video id="camera" autoplay playsinline></video>
         <canvas id="canvas" style="display:none;"></canvas>
@@ -67,23 +102,22 @@
         
         <div>
             <button id="take-photo" class="button">写真を撮る</button>
-            <button id="retake" class="button" style="display:none;">撮り直す</button>
-            <button id="analyze" class="button" style="display:none;">分析する</button>
+            <button id="retake-cancel" class="button" style="display:none;">撮り直す</button>
             <a href="/" class="button">戻る</a>
         </div>
 
-        <div id="error" class="error"></div>
-
-        <div id="result">
-            <h2>分析結果</h2>
-            <div id="description"></div>
-            <audio id="audio" controls style="margin-top: 20px;"></audio>
+        <div id="analyzing-status">
+            画像を分析中です...<br>
+            分析が完了すると自動的にチャット画面へ移動します。
         </div>
+        <div id="error" class="error"></div>
     </div>
 
     <script>
         let currentLatitude = null;
         let currentLongitude = null;
+        let currentAnalysisController = null;
+        let isAnalyzing = false;
 
         // 位置情報の取得
         function getLocation() {
@@ -92,17 +126,12 @@
                     function(position) {
                         currentLatitude = position.coords.latitude;
                         currentLongitude = position.coords.longitude;
-                        document.getElementById('location-status').textContent = '取得成功';
-                        document.getElementById('latitude').textContent = currentLatitude;
-                        document.getElementById('longitude').textContent = currentLongitude;
                     },
                     function(error) {
-                        document.getElementById('location-status').textContent = '取得失敗';
                         document.getElementById('error').textContent = '位置情報の取得に失敗しました: ' + error.message;
                     }
                 );
             } else {
-                document.getElementById('location-status').textContent = '非対応';
                 document.getElementById('error').textContent = 'お使いのブラウザは位置情報に対応していません。';
             }
         }
@@ -112,8 +141,8 @@
         const canvas = document.getElementById('canvas');
         const preview = document.getElementById('preview');
         const takePhotoBtn = document.getElementById('take-photo');
-        const retakeBtn = document.getElementById('retake');
-        const analyzeBtn = document.getElementById('analyze');
+        const retakeCancelBtn = document.getElementById('retake-cancel');
+        const analyzingStatus = document.getElementById('analyzing-status');
 
         async function initCamera() {
             try {
@@ -123,6 +152,64 @@
                 video.srcObject = stream;
             } catch (err) {
                 document.getElementById('error').textContent = 'カメラの起動に失敗しました: ' + err.message;
+            }
+        }
+
+        // ボタンの表示を更新
+        function updateRetakeCancelButton(analyzing) {
+            isAnalyzing = analyzing;
+            retakeCancelBtn.textContent = analyzing ? 'キャンセル' : '撮り直す';
+            retakeCancelBtn.classList.toggle('cancel-mode', analyzing);
+        }
+
+        // 分析実行
+        async function startAnalysis() {
+            if (!currentLatitude || !currentLongitude) {
+                document.getElementById('error').textContent = '位置情報を取得してから分析してください。';
+                return;
+            }
+
+            // 前回の分析がある場合はキャンセル
+            if (currentAnalysisController) {
+                currentAnalysisController.abort();
+            }
+
+            // 新しいAbortControllerを作成
+            currentAnalysisController = new AbortController();
+            analyzingStatus.style.display = 'block';
+            updateRetakeCancelButton(true);
+            document.getElementById('error').textContent = '';
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        image: preview.src,
+                        latitude: currentLatitude,
+                        longitude: currentLongitude
+                    }),
+                    signal: currentAnalysisController.signal
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || '分析に失敗しました');
+                }
+
+                // 分析成功後、チャット画面へ自動遷移
+                window.location.href = `/chat/${result.image_id}`;
+
+            } catch (err) {
+                if (err.name === 'AbortError') {
+                    document.getElementById('error').textContent = '分析をキャンセルしました。';
+                } else {
+                    document.getElementById('error').textContent = '分析中にエラーが発生しました: ' + err.message;
+                }
+                analyzingStatus.style.display = 'none';
+                updateRetakeCancelButton(false);
             }
         }
 
@@ -136,54 +223,27 @@
             video.style.display = 'none';
             preview.style.display = 'block';
             takePhotoBtn.style.display = 'none';
-            retakeBtn.style.display = 'inline-block';
-            analyzeBtn.style.display = 'inline-block';
+            retakeCancelBtn.style.display = 'inline-block';
+            
+            // 自動的に分析を開始
+            startAnalysis();
         });
 
-        // 撮り直し
-        retakeBtn.addEventListener('click', () => {
+        // 撮り直し/キャンセルボタン
+        retakeCancelBtn.addEventListener('click', () => {
+            if (isAnalyzing) {
+                // 分析中の場合はキャンセル
+                if (currentAnalysisController) {
+                    currentAnalysisController.abort();
+                }
+            }
+            // カメラ表示に戻る
             video.style.display = 'block';
             preview.style.display = 'none';
             takePhotoBtn.style.display = 'inline-block';
-            retakeBtn.style.display = 'none';
-            analyzeBtn.style.display = 'none';
-            document.getElementById('result').style.display = 'none';
-        });
-
-        // 分析実行
-        analyzeBtn.addEventListener('click', async () => {
-            if (!currentLatitude || !currentLongitude) {
-                document.getElementById('error').textContent = '位置情報を取得してから分析してください。';
-                return;
-            }
-
-            analyzeBtn.disabled = true;
-            try {
-                const response = await fetch('/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        image: preview.src,
-                        latitude: currentLatitude,
-                        longitude: currentLongitude
-                    })
-                });
-
-                const result = await response.json();
-                if (result.error) {
-                    throw new Error(result.error);
-                }
-
-                document.getElementById('description').textContent = result.description;
-                document.getElementById('audio').src = result.audio_file;
-                document.getElementById('result').style.display = 'block';
-            } catch (err) {
-                document.getElementById('error').textContent = '分析中にエラーが発生しました: ' + err.message;
-            } finally {
-                analyzeBtn.disabled = false;
-            }
+            retakeCancelBtn.style.display = 'none';
+            analyzingStatus.style.display = 'none';
+            document.getElementById('error').textContent = '';
         });
 
         // 初期化

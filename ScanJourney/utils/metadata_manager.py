@@ -42,3 +42,11 @@ class MetadataManager:
     def get_all_images(self):
         """全画像データの取得"""
         return self.load_metadata()
+
+    def get_image_data_by_filename(self, filename):
+        """ファイル名から画像データを取得"""
+        metadata = self.load_metadata()
+        for image_id, data in metadata.items():
+            if data.get('image_path', '').endswith(filename):
+                return data
+        return None
