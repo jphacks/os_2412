@@ -31,7 +31,7 @@
 * ２日間で完成までもっていったこと(寝れなかった・・)
 
 ## 開発技術
-python
+python、html、JavaScript
 ### 活用した技術
 vscode、chatgpt、claude
 #### API・データ
